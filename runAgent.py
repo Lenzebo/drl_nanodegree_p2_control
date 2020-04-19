@@ -1,12 +1,17 @@
 from utils import *
 
 
-env, brain_name, num_agents, state_size, action_size = initEnvironment()
-agent = createAgent(action_size, state_size, num_agents)
-agent.load()
+def main():
+    env, brain_name, num_agents, state_size, action_size = initEnvironment()
+    agent = createAgent(action_size, state_size, num_agents)
+    agent.load()
 
-scores = playOneEpisode(env,agent,brain_name)
+    scores = playOneEpisode(env, brain_name, agent)
 
-print('Total score (averaged over agents) this episode: {}'.format(np.mean(scores)))
+    print('Total score (averaged over agents) this episode: {}'.format(np.mean(scores)))
 
-env.close()
+    env.close()
+
+
+if __name__ == "__main__":
+    main()

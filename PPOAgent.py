@@ -1,7 +1,6 @@
 import random
 import torch
 from torch import optim
-import torch.nn.functional as F
 import torch.nn as nn
 
 import numpy as np
@@ -9,6 +8,7 @@ import numpy as np
 import BatchSelection
 
 from HyperParameter import HyperParameter
+
 
 class Agent():
     """Interacts with and learns from the environment."""
@@ -38,6 +38,12 @@ class Agent():
         self.policy = policy
 
     def perform_rollout(self, environment, brain_name):
+        """ This function generates a rollout in the environment with the current policy
+
+        :param environment: an environmnet adhering to the UnityEnvironment interface
+        :param brain_name: name of the agent within the environment
+        :return: a rollout (tuple of (states, values, actions, log_probs, rewards, terminals) and the value to go from the last state of the rollout
+        """
         rollout = []
         env_info = environment.reset(train_mode=True)[brain_name]
         states = env_info.vector_observations
@@ -58,6 +64,13 @@ class Agent():
         return rollout, pending_value
 
     def calculate_advantages(self, rollout, pending_value):
+        """ This function calculates the advantages of a rollout,
+        by backtracking rewards from the reached state of the rollout back to the beginning state
+
+        :param rollout: tuple of (states, values, actions, log_probs, rewards, terminals)
+        :param pending_value: value to go from the last state of the rollout
+        :return: states, actions, log_probs, returns and advantages of the rollout as torch Tensors
+        """
         processed_rollout = [None] * (len(rollout) - 1)
         advantages = torch.Tensor(np.zeros((self.num_agents, 1)))
         returns = pending_value.cpu().detach()
@@ -71,9 +84,9 @@ class Agent():
             discounted_returns = self.hyperparameter.discount_rate * terminals * returns
             returns = rewards + discounted_returns
 
-            # (12)
+            # Formula (12) in PPO paper
             td_error = rewards + self.hyperparameter.discount_rate * terminals * next_value.detach() - value.detach()
-            # (11)
+            # Formula (11) in PPO paper
             advantages = advantages * self.hyperparameter.lambda_ * self.hyperparameter.discount_rate * terminals + td_error
             processed_rollout[i] = [states, actions, log_probs, returns, advantages]
 
@@ -85,9 +98,14 @@ class Agent():
         return states, actions, log_probs_old, returns, advantages
 
     def train_step(self, environment, brain_name):
+        """
+        Perform one training step according to https://arxiv.org/abs/1707.06347
 
-        # Training according to https://arxiv.org/abs/1707.06347
-        #
+        :param environment:
+        :param brain_name:
+        :return:
+        """
+
         rollout, pending_value = self.perform_rollout(environment, brain_name)
         states, actions, log_probs_old, returns, advantages = self.calculate_advantages(rollout, pending_value)
 
@@ -103,6 +121,15 @@ class Agent():
                                  returns[batch_indices], advantages[batch_indices])
 
     def train_batch(self, sampled_states, sampled_actions, sampled_log_probs_old, sampled_returns, sampled_advantages):
+        """
+        Update the policy network with one set of sampled values (minibatch)
+        :param sampled_states:
+        :param sampled_actions:
+        :param sampled_log_probs_old:
+        :param sampled_returns:
+        :param sampled_advantages:
+        :return:
+        """
         _, log_probs, entropy_loss, values = self.policy(sampled_states, sampled_actions)
         values = values.cpu()
         log_probs = log_probs.cpu()
@@ -119,9 +146,19 @@ class Agent():
         self.optimizier.step()
 
     def save(self, filename="model/model.pth"):
+        """
+        Save policy weigths to file
+        :param filename:
+        :return:
+        """
         torch.save(self.policy.state_dict(), filename)
 
     def load(self, filename="model/model.pth"):
+        """
+        Loads policy weights from file
+        :param filename:
+        :return:
+        """
         self.policy.load_state_dict(torch.load(filename))
 
     def act(self, state):

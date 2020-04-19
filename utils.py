@@ -1,17 +1,21 @@
-from unityagents import UnityEnvironment
-
 import numpy as np
-import torch
+
+from unityagents import UnityEnvironment
 
 from PPOAgent import Agent, HyperParameter
 from Model import PPOPolicyNetwork
 
 
-
-
 def initEnvironment():
+    """
+    Load the environment for this project and determine num_agents, state_size and action_size
+    :return:
+    """
+
     # env = UnityEnvironment(file_name='Reacher_1Agent')
+    # env = UnityEnvironment(file_name='Crawler')
     env = UnityEnvironment(file_name='Reacher')
+
     # get the default brain
     brain_name = env.brain_names[0]
     brain = env.brains[brain_name]
@@ -37,18 +41,34 @@ def initEnvironment():
 
     return env, brain_name, num_agents, state_size, action_size
 
+
 def createAgent(action_size, state_size, num_agents):
+    """
+    Create an agent for this project for training with the given configuration of number of agents and state sizes
+    :param action_size:
+    :param state_size:
+    :param num_agents:
+    :return:
+    """
     device = "cuda:0"
     seed = 10
 
     params = HyperParameter()
     print(params)
-    policy = PPOPolicyNetwork(state_size, action_size, params.hidden_size,  device, seed)
-    agent = Agent(num_agents, state_size, action_size, device,policy, hyperparameter=params)
+    policy = PPOPolicyNetwork(state_size, action_size, params.hidden_size, device, seed)
+    agent = Agent(num_agents, state_size, action_size, device, policy, hyperparameter=params)
     return agent
 
 
-def playOneEpisode(environment, agent, brain_name, train_mode=False):
+def playOneEpisode(environment, brain_name, agent, train_mode=False):
+    """
+    Runs one episode in the given environment with the current policy of the agent
+    :param environment:
+    :param brain_name:
+    :param agent:
+    :param train_mode: forwards mode to environment. True will run faster than realtime to speed up training
+    :return:
+    """
     state = environment.reset(train_mode=train_mode)[brain_name].vector_observations
     num_agents = len(state)
     total_r = np.zeros(num_agents)
@@ -67,15 +87,30 @@ def playOneEpisode(environment, agent, brain_name, train_mode=False):
     return total_r
 
 
-def movingaverage(values, window):
+def movingAverage(values, window):
+    """
+    Calculates the moving average with given window size on values
+    :param values:
+    :param window:
+    :return:
+    """
     weights = np.repeat(1.0, window) / window
     sma = np.convolve(values, weights, 'valid')
     return sma
 
 
-def plotScores(scores, desired_score, ma_window = 100, show_window = False, filename="scores.png"):
+def plotScores(scores, desired_score, ma_window=100, show_window=False, filename="scores.png"):
+    """
+    Create a figure plotting scores, average scores and desired score
+    :param scores:
+    :param desired_score:
+    :param ma_window:
+    :param show_window:
+    :param filename:
+    :return:
+    """
     import matplotlib.pyplot as plt
-    ma_scores = movingaverage(scores, ma_window)
+    ma_scores = movingAverage(scores, ma_window)
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -87,4 +122,3 @@ def plotScores(scores, desired_score, ma_window = 100, show_window = False, file
     plt.savefig(filename)
     if show_window:
         plt.show()
-
